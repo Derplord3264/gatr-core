@@ -3,6 +3,8 @@ import yfinance as yf
 import time
 import signal
 import sys
+from datetime import datetime
+from pytz import timezone
 from collections import deque
 
 # Initialize Hugging Face Inference Client with new API key
@@ -42,19 +44,27 @@ def parse_decision(decision_text):
             commands.append((parts[0], None, None))
     return commands
 
-# Function to get real-time stock data using yfinance
 def get_stock_data(symbol):
+    """Function to get real-time stock data using yfinance."""
     stock = yf.Ticker(symbol)
     data = stock.history(period="1d", interval="1m")
     return data
 
-# Function to handle graceful shutdown
+def is_market_open():
+    """Function to check if the stock market is open."""
+    eastern = timezone('US/Eastern')
+    now = datetime.now(eastern)
+    market_open_time = now.replace(hour=9, minute=30, second=0, microsecond=0)
+    market_close_time = now.replace(hour=16, minute=0, second=0, microsecond=0)
+    return market_open_time <= now <= market_close_time and now.weekday() < 5
+
 def signal_handler(sig, frame):
+    """Function to handle graceful shutdown."""
     print("Gracefully shutting down...")
     sys.exit(0)
 
-# Function to simulate trading based on AI commands
 def simulate_trading(stock_symbols, initial_balance, initial_holdings):
+    """Function to simulate trading based on AI commands."""
     balance = initial_balance
     holdings = initial_holdings
 
@@ -63,6 +73,14 @@ def simulate_trading(stock_symbols, initial_balance, initial_holdings):
     signal.signal(signal.SIGTERM, signal_handler)
 
     while True:
+        if not is_market_open():
+            print("Market is closed. Standing by...")
+            time.sleep(60)
+            continue
+
+        eastern = timezone('US/Eastern')
+        current_time = datetime.now(eastern).strftime('%Y-%m-%d %H:%M:%S')
+
         for stock_symbol in stock_symbols:
             stock_data = get_stock_data(stock_symbol)
             current_price = stock_data['Close'].iloc[-1]
@@ -81,6 +99,7 @@ def simulate_trading(stock_symbols, initial_balance, initial_holdings):
                     You are an AI being tested for the feasibility of the use of AI in the financial world, specifically trading stocks.
                     You are working in a fully simulated economy (that is not being run by you), so you can interact with it freely.
                     This prompt is being fed to you by a program every 60 seconds.
+                    The current time and date is {current_time}.
                     In order for the program to understand you, you must respond in the following format:
                     To buy stocks, you must say 'BUY <ticker> <quantity>'. To sell stocks, you must say 'SELL <ticker> <quantity>'.
                     You may buy/sell multiple stocks in one message, simply by separating the commands with a comma.
@@ -101,15 +120,9 @@ def simulate_trading(stock_symbols, initial_balance, initial_holdings):
                 }
             ]
             
-            # Print the prompt for debugging
-            print("Prompt:\n", messages[0]['content'])
-            
             # Query AI model for decision
             ai_response = query_qwen_model(messages)
             action_response = ai_response['content']
-            
-            # Print the AI's response for debugging
-            print("AI Response:\n", action_response)
             
             # Parse the AI's decision
             commands = parse_decision(action_response)
@@ -123,7 +136,6 @@ def simulate_trading(stock_symbols, initial_balance, initial_holdings):
                         balance -= cost
                         holdings[ticker].append({"count": count, "price": current_price})
                         action_log.append(f"{timestamp}: You bought {count} shares of {ticker} at ${current_price}, new balance: ${balance}")
-                        print(f"Bought {count} shares of {ticker} at ${current_price}, new balance: ${balance}, holdings: {holdings}")
                     else:
                         print("Not enough balance to buy")
                 elif action == "SELL":
@@ -137,14 +149,21 @@ def simulate_trading(stock_symbols, initial_balance, initial_holdings):
                                     holdings[ticker].remove(lot)
                                 break
                         action_log.append(f"{timestamp}: You sold {count} shares of {ticker} at ${current_price}, new balance: ${balance}")
-                        print(f"Sold {count} shares of {ticker} at ${current_price}, new balance: ${balance}, holdings: {holdings}")
                     else:
                         print("Not enough holdings to sell")
                 elif action == "STANDBY":
                     action_log.append(f"{timestamp}: You decided to stand by, no action taken")
-                    print("Standing by, no action taken")
                 else:
                     print(f"Unexpected command: {action} {ticker} {count}")
+            
+            # Print current status every 60 seconds
+            print(f"\nCurrent bank balance: ${balance}")
+            print("Current holdings:")
+            for symbol, lots in holdings.items():
+                print(f"- {symbol}: " + ", ".join([f"{lot['count']} shares bought at ${lot['price']} each" for lot in lots]))
+            print("Last AI actions:")
+            for log in action_log:
+                print(log)
         
         # Delay between iterations to avoid overwhelming the APIs (e.g., 60 seconds)
         time.sleep(60)
