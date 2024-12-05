@@ -43,7 +43,7 @@ def simulate_trading(stock_symbols, initial_balance, initial_holdings):
             
             # Prepare prompt for AI model with current stock data, balance, holdings, and action log
             holdings_info = "\n".join(
-                f"- {symbol}: {', '.join(f'{lot['count']} shares bought at ${lot['price']} each' for lot in lots)}"
+                f"- {symbol}: {', '.join(f\"{lot['count']} shares bought at ${lot['price']} each\" for lot in lots)}"
                 for symbol, lots in holdings.items() if lots
             )
             action_log_info = "\n".join(action_log)
