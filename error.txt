@@ -1,7 +1,1 @@
-Traceback (most recent call last):
-  File "/home/grant/gatr/gatr-latest.py", line 201, in <module>
-    simulate_trading(stock_symbols, bank_balance, holdings)
-  File "/home/grant/gatr/gatr-latest.py", line 64, in simulate_trading
-    signal.signal(signal.SIGINT, signal_handler)
-                                 ^^^^^^^^^^^^^^
-NameError: name 'signal_handler' is not defined
+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
