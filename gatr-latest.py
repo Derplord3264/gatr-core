@@ -19,7 +19,7 @@ holdings = {}
 action_log = deque(maxlen=5)
 
 # Capital gains tax rate
-capital_gains tax rate = 0.15
+capital_gains_tax_rate = 0.15
 
 # Limit historical data to the last 5 records for each stock
 historical_data_limit = 5
