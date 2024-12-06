@@ -6,17 +6,14 @@ import sys
 from datetime import datetime
 from pytz import timezone
 from collections import deque
+import json
 
 # Initialize Hugging Face Inference Client with new API key
 client = InferenceClient(api_key="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")
 
 # Initial bank balance and holdings
 bank_balance = 1000
-holdings = {
-    "AAPL": [],
-    "MSFT": [],
-    "GOOGL": []
-}
+holdings = {}
 
 # Action log to keep track of the last 5 actions
 action_log = deque(maxlen=5)
@@ -87,10 +84,7 @@ def simulate_trading(stock_symbols, initial_balance, initial_holdings):
             historical_prices = list(zip(stock_data.index.strftime('%Y-%m-%d %H:%M:%S').tolist(), stock_data['Close'].tolist()))
             
             # Prepare prompt for AI model with current stock data, balance, holdings, and action log
-            holdings_info = "\n".join(
-                f"- {symbol}: " + ", ".join([f"{lot['count']} shares bought at ${lot['price']} each" for lot in lots])
-                for symbol, lots in holdings.items() if lots
-            )
+            holdings_info = json.dumps(holdings, indent=4)
             action_log_info = "\n".join(action_log)
             messages = [
                 {
@@ -134,6 +128,8 @@ def simulate_trading(stock_symbols, initial_balance, initial_holdings):
                     cost = current_price * count
                     if balance >= cost:
                         balance -= cost
+                        if ticker not in holdings:
+                            holdings[ticker] = []
                         holdings[ticker].append({"count": count, "price": current_price})
                         action_log.append(f"{timestamp}: You bought {count} shares of {ticker} at ${current_price}, new balance: ${balance}")
                     else:
@@ -148,6 +144,8 @@ def simulate_trading(stock_symbols, initial_balance, initial_holdings):
                                 if lot["count"] == 0:
                                     holdings[ticker].remove(lot)
                                 break
+                        if not holdings[ticker]:
+                            del holdings[ticker]
                         action_log.append(f"{timestamp}: You sold {count} shares of {ticker} at ${current_price}, new balance: ${balance}")
                     else:
                         print("Not enough holdings to sell")
