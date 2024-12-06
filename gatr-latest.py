@@ -124,6 +124,7 @@ def simulate_trading(stock_symbols, initial_balance, initial_holdings):
                 holdings_info = json.dumps(holdings, indent=4)
                 persuade_message = ""
             action_log_info = "\n".join(action_log)
+
             messages = [
                 {
                     "role": "user",
@@ -158,6 +159,10 @@ def simulate_trading(stock_symbols, initial_balance, initial_holdings):
             
             # Query AI model for decision
             ai_response = query_qwen_model(messages)
+            
+            # Delay for 60 seconds before processing the AI's response
+            time.sleep(60)  # Ensure there is a delay before processing the response
+
             action_response = ai_response['choices'][0]['message']['content']
             
             # Display AI response in the console
