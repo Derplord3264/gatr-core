@@ -30,7 +30,7 @@ def query_qwen_model(messages):
         messages=messages,
         max_tokens=500
     )
-    return completion.choices[0].message
+    return completion
 
 def parse_decision(decision_text):
     """Parses the AI's decision text and returns valid trading commands."""
@@ -65,8 +65,8 @@ def is_market_open():
     """Function to check if the stock market is open."""
     eastern = timezone('US/Eastern')
     now = datetime.now(eastern)
-    market_open_time = now replace(hour=9, minute=30, second=0, microsecond=0)
-    market_close_time = now replace(hour=16, minute=0, second=0, microsecond=0)
+    market_open_time = now.replace(hour=9, minute=30, second=0, microsecond=0)
+    market_close_time = now.replace(hour=16, minute=0, second=0, microsecond=0)
     return market_open_time <= now <= market_close_time and now.weekday() < 5
 
 def signal_handler(sig, frame):
@@ -84,7 +84,7 @@ def simulate_trading(stock_symbols, initial_balance, initial_holdings):
     signal.signal(signal.SIGTERM, signal_handler)
 
     while True:
-        if not is market_open():
+        if not is_market_open():
             print("Market is closed. Standing by...")
             time.sleep(60)
             continue
@@ -145,7 +145,7 @@ def simulate_trading(stock_symbols, initial_balance, initial_holdings):
             
             # Query AI model for decision
             ai_response = query_qwen_model(messages)
-            action_response = ai_response['content']
+            action_response = ai_response['choices'][0]['message']['content']
             
             # Display AI response in the console
             print(f"AI Response: {action_response}")
