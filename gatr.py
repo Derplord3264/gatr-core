@@ -48,7 +48,7 @@ def get_stock_data(symbol):
     """Function to get real-time stock data using yfinance."""
     stock = yf.Ticker(symbol)
     data = stock.history(period="1d", interval="1m")
-    return data
+    return data['Close'].iloc[-1]  # Return the latest closing price
 
 def is_market_open():
     """Function to check if the stock market is open."""
@@ -81,10 +81,12 @@ def simulate_trading(stock_symbols, initial_balance, initial_holdings):
         eastern = timezone('US/Eastern')
         current_time = datetime.now(eastern).strftime('%Y-%m-%d %H:%M:%S')
 
+        stock_prices = {}
         for stock_symbol in stock_symbols:
-            stock_data = get_stock_data(stock_symbol)
-            current_price = stock_data['Close'].iloc[-1]
-            historical_prices = list(zip(stock_data.index.strftime('%Y-%m-%d %H:%M:%S').tolist(), stock_data['Close'].tolist()))
+            stock_prices[stock_symbol] = get_stock_data(stock_symbol)
+        
+        for stock_symbol, current_price in stock_prices.items():
+            historical_prices = [(datetime.now(eastern).strftime('%Y-%m-%d %H:%M:%S'), current_price)]
             
             # Prepare prompt for AI model with current stock data, balance, holdings, and action log
             if not holdings:
@@ -114,7 +116,7 @@ def simulate_trading(stock_symbols, initial_balance, initial_holdings):
                     Holdings (the stocks you currently own):
                     {holdings_info}
                     Current prices:
-                    """ + "\n".join(f"- {symbol}: ${current_price}" for symbol in stock_symbols) + f"""
+                    """ + "\n".join(f"- {symbol}: ${price}" for symbol, price in stock_prices.items()) + f"""
                     Historical prices for {stock_symbol} (date and time): {historical_prices}
                     Last 5 actions taken by you:
                     {action_log_info}
@@ -138,18 +140,19 @@ def simulate_trading(stock_symbols, initial_balance, initial_holdings):
             timestamp = time.strftime('%Y-%m-%d %H:%M:%S')
             for action, ticker, count in commands:
                 if action == "BUY":
-                    cost = current_price * count
+                    cost = stock_prices[ticker] * count
                     if balance >= cost:
                         balance -= cost
                         if ticker not in holdings:
                             holdings[ticker] = []
-                        holdings[ticker].append({"count": count, "price": current_price})
-                        action_log.append(f"{timestamp}: You bought {count} shares of {ticker} at ${current_price}, new balance: ${balance}")
+                        holdings[ticker].append({"count": count, "price": stock_prices[ticker]})
+                        action_log.append(f"{timestamp}: You bought {count} shares of {ticker} at ${stock_prices[ticker]}, new balance: ${balance}")
                     else:
-                        print("Not enough balance to buy")
+                        print(f"Not enough balance to buy {count} shares of {ticker} at ${stock_prices[ticker]}")
+                        action_log.append(f"{timestamp}: You didn't have enough balance to buy {count} stocks of {ticker} at ${stock_prices[ticker]}.")
                 elif action == "SELL":
                     if ticker in holdings and any(lot["count"] >= count for lot in holdings[ticker]):
-                        earnings = current_price * count
+                        earnings = stock_prices[ticker] * count
                         # Calculate capital gains tax
                         total_cost = sum(lot["count"] * lot["price"] for lot in holdings[ticker])
                         profit = earnings - total_cost
@@ -163,7 +166,7 @@ def simulate_trading(stock_symbols, initial_balance, initial_holdings):
                                 break
                         if not holdings[ticker]:
                             del holdings[ticker]
-                        action_log.append(f"{timestamp}: You sold {count} shares of {ticker} at ${current_price}, earnings: ${earnings}, tax paid: ${tax}, new balance: ${balance}")
+                        action_log.append(f"{timestamp}: You sold {count} shares of {ticker} at ${stock_prices[ticker]}, earnings: ${earnings}, tax paid: ${tax}, new balance: ${balance}")
                     else:
                         print("Not enough holdings to sell")
                 elif action == "STANDBY":
