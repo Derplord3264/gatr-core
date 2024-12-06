@@ -19,7 +19,7 @@ holdings = {}
 action_log = deque(maxlen=5)
 
 # Capital gains tax rate
-capital_gains_tax_rate = 0.15
+capital_gains tax rate = 0.15
 
 # Limit historical data to the last 5 records for each stock
 historical_data_limit = 5
@@ -55,6 +55,25 @@ def get_stock_data(symbol):
         return None  # Return None if no data is available
     return data['Close'].iloc[-1]  # Return the latest closing price
 
+def get_limited_historical_data(symbol, limit):
+    """Function to get limited historical stock data using yfinance."""
+    stock = yf.Ticker(symbol)
+    data = stock.history(period="1d", interval="1m")
+    return list(zip(data.index.strftime('%Y-%m-%d %H:%M:%S').tolist()[-limit:], data['Close'].tolist()[-limit:]))
+
+def is_market_open():
+    """Function to check if the stock market is open."""
+    eastern = timezone('US/Eastern')
+    now = datetime.now(eastern)
+    market_open_time = now replace(hour=9, minute=30, second=0, microsecond=0)
+    market_close_time = now replace(hour=16, minute=0, second=0, microsecond=0)
+    return market_open_time <= now <= market_close_time and now.weekday() < 5
+
+def signal_handler(sig, frame):
+    """Function to handle graceful shutdown."""
+    print("Gracefully shutting down...")
+    sys.exit(0)
+
 def simulate_trading(stock_symbols, initial_balance, initial_holdings):
     """Function to simulate trading based on AI commands."""
     balance = initial_balance
@@ -65,7 +84,7 @@ def simulate_trading(stock_symbols, initial_balance, initial_holdings):
     signal.signal(signal.SIGTERM, signal_handler)
 
     while True:
-        if not is_market_open():
+        if not is market_open():
             print("Market is closed. Standing by...")
             time.sleep(60)
             continue
@@ -119,7 +138,7 @@ def simulate_trading(stock_symbols, initial_balance, initial_holdings):
                     {persuade_message}
                     \n\nImportant: Make sure you do not buy more stocks than you can afford given your current balance.
                     Do not sell stocks unless you would make a profit of $30 or more, or if you detect a large stock crash with indisputable evidence that the stock will crash and lose you money.
-                    It is okay to STANDBY often as that is part of trading. Remember, you are receiving this prompt every 60 seconds, so take that into account.
+                    If you try to sell a stock and the profit is less than $30, the stock(s) will not be sold and you will be informed. It is okay to STANDBY often as that is part of trading. Remember, you are receiving this prompt every 60 seconds, so take that into account.
                     Based on these current market conditions, please thoroughly look over your choices and make an educated decision. Please now create a response for the program."""
                 }
             ]
@@ -133,7 +152,7 @@ def simulate_trading(stock_symbols, initial_balance, initial_holdings):
 
             # Parse the AI's decision
             commands = parse_decision(action_response)
-            
+
             # Execute the parsed commands
             timestamp = time.strftime('%Y-%m-%d %H:%M:%S')
             for action, ticker, count in commands:
@@ -173,7 +192,7 @@ def simulate_trading(stock_symbols, initial_balance, initial_holdings):
                             action_log.append(f"{timestamp}: You sold {count} shares of {ticker} at ${stock_prices[ticker]}, earnings: ${earnings}, tax paid: ${tax}, new balance: ${balance}")
                         else:
                             print(f"Profit of ${profit} is less than $30, holding the stocks.")
-                            action_log.append(f"{timestamp}: Profit of ${profit} is less than $30, holding the stocks.")
+                            action_log.append(f"{timestamp}: You tried to sell {count} shares of {ticker} at a profit of ${profit}, but the profit was lower than the minimum profit of $30, and the stock(s) were not sold.")
                     else:
                         print("Not enough holdings to sell")
                 elif action == "STANDBY":
