@@ -19,7 +19,7 @@ holdings = {}
 action_log = deque(maxlen=5)
 
 # Capital gains tax rate
-capital_gains_tax_rate = 0.15
+capital_gains_tax rate = 0.15
 
 def query_qwen_model(messages):
     completion = client.chat.completions.create(
@@ -32,7 +32,7 @@ def query_qwen_model(messages):
 def parse_decision(decision_text):
     """Parses the AI's decision text and returns valid trading commands."""
     commands = []
-    for decision in decision_text.split(','):
+    for decision in decision_text split(','):
         parts = decision.strip().split()
         if len(parts) == 3 and parts[0] in {"BUY", "SELL"}:
             try:
@@ -54,8 +54,8 @@ def is_market_open():
     """Function to check if the stock market is open."""
     eastern = timezone('US/Eastern')
     now = datetime.now(eastern)
-    market_open_time = now.replace(hour=9, minute=30, second=0, microsecond=0)
-    market_close_time = now.replace(hour=16, minute=0, second=0, microsecond=0)
+    market open_time = now.replace(hour=9, minute=30, second=0, microsecond=0)
+    market close_time = now replace(hour=16, minute=0, second=0, microsecond=0)
     return market_open_time <= now <= market_close_time and now.weekday() < 5
 
 def signal_handler(sig, frame):
@@ -122,6 +122,8 @@ def simulate_trading(stock_symbols, initial_balance, initial_holdings):
                     {action_log_info}
                     {persuade_message}
                     \n\nImportant: Make sure you do not buy more stocks than you can afford given your current balance.
+                    Do not sell stocks unless you would make a profit of $30 or more, or if you detect a large stock crash with indisputable evidence that the stock will crash and lose you money.
+                    It is okay to STANDBY often as that is part of trading. Remember, you are receiving this prompt every 60 seconds, so take that into account.
                     Based on these current market conditions, please thoroughly look over your choices and make an educated decision. Please now create a response for the program."""
                 }
             ]
@@ -157,16 +159,20 @@ def simulate_trading(stock_symbols, initial_balance, initial_holdings):
                         total_cost = sum(lot["count"] * lot["price"] for lot in holdings[ticker])
                         profit = earnings - total_cost
                         tax = profit * capital_gains_tax_rate if profit > 0 else 0
-                        balance += (earnings - tax)
-                        for lot in holdings[ticker]:
-                            if lot["count"] >= count:
-                                lot["count"] -= count
-                                if lot["count"] == 0:
-                                    holdings[ticker].remove(lot)
-                                break
-                        if not holdings[ticker]:
-                            del holdings[ticker]
-                        action_log.append(f"{timestamp}: You sold {count} shares of {ticker} at ${stock_prices[ticker]}, earnings: ${earnings}, tax paid: ${tax}, new balance: ${balance}")
+                        if profit >= 30:
+                            balance += (earnings - tax)
+                            for lot in holdings[ticker]:
+                                if lot["count"] >= count:
+                                    lot["count"] -= count
+                                    if lot["count"] == 0:
+                                        holdings[ticker].remove(lot)
+                                    break
+                            if not holdings[ticker]:
+                                del holdings[ticker]
+                            action_log.append(f"{timestamp}: You sold {count} shares of {ticker} at ${stock_prices[ticker]}, earnings: ${earnings}, tax paid: ${tax}, new balance: ${balance}")
+                        else:
+                            print(f"Profit of ${profit} is less than $30, holding the stocks.")
+                            action_log.append(f"{timestamp}: Profit of ${profit} is less than $30, holding the stocks.")
                     else:
                         print("Not enough holdings to sell")
                 elif action == "STANDBY":
