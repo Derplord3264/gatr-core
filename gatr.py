@@ -18,6 +18,9 @@ holdings = {}
 # Action log to keep track of the last 5 actions
 action_log = deque(maxlen=5)
 
+# Capital gains tax rate
+capital_gains_tax_rate = 0.15
+
 def query_qwen_model(messages):
     completion = client.chat.completions.create(
         model="Qwen/Qwen2.5-Coder-32B-Instruct",
@@ -84,7 +87,12 @@ def simulate_trading(stock_symbols, initial_balance, initial_holdings):
             historical_prices = list(zip(stock_data.index.strftime('%Y-%m-%d %H:%M:%S').tolist(), stock_data['Close'].tolist()))
             
             # Prepare prompt for AI model with current stock data, balance, holdings, and action log
-            holdings_info = json.dumps(holdings, indent=4)
+            if not holdings:
+                holdings_info = "You have no holdings"
+                persuade_message = "Since you currently have no holdings, consider buying stocks to build a diversified portfolio."
+            else:
+                holdings_info = json.dumps(holdings, indent=4)
+                persuade_message = ""
             action_log_info = "\n".join(action_log)
             messages = [
                 {
@@ -103,14 +111,16 @@ def simulate_trading(stock_symbols, initial_balance, initial_holdings):
                     YOU MUST RESPOND IN THIS EXACT FORMAT OR THE PROGRAM WILL FAIL TO INTERPRET YOUR RESPONSE!!!
                     Here are the current market conditions:
                     Current balance: ${balance}
-                    Holdings:
+                    Holdings (the stocks you currently own):
                     {holdings_info}
                     Current prices:
                     """ + "\n".join(f"- {symbol}: ${current_price}" for symbol in stock_symbols) + f"""
                     Historical prices for {stock_symbol} (date and time): {historical_prices}
                     Last 5 actions taken by you:
                     {action_log_info}
-                    \n\nBased on these current market conditions, please thoroughly look over your choices and make an educated decision. Please now create a response for the program."""
+                    {persuade_message}
+                    \n\nImportant: Make sure you do not buy more stocks than you can afford given your current balance.
+                    Based on these current market conditions, please thoroughly look over your choices and make an educated decision. Please now create a response for the program."""
                 }
             ]
             
@@ -118,6 +128,9 @@ def simulate_trading(stock_symbols, initial_balance, initial_holdings):
             ai_response = query_qwen_model(messages)
             action_response = ai_response['content']
             
+            # Display AI response in the console
+            print(f"AI Response: {action_response}")
+
             # Parse the AI's decision
             commands = parse_decision(action_response)
             
@@ -137,7 +150,11 @@ def simulate_trading(stock_symbols, initial_balance, initial_holdings):
                 elif action == "SELL":
                     if ticker in holdings and any(lot["count"] >= count for lot in holdings[ticker]):
                         earnings = current_price * count
-                        balance += earnings
+                        # Calculate capital gains tax
+                        total_cost = sum(lot["count"] * lot["price"] for lot in holdings[ticker])
+                        profit = earnings - total_cost
+                        tax = profit * capital_gains_tax_rate if profit > 0 else 0
+                        balance += (earnings - tax)
                         for lot in holdings[ticker]:
                             if lot["count"] >= count:
                                 lot["count"] -= count
@@ -146,7 +163,7 @@ def simulate_trading(stock_symbols, initial_balance, initial_holdings):
                                 break
                         if not holdings[ticker]:
                             del holdings[ticker]
-                        action_log.append(f"{timestamp}: You sold {count} shares of {ticker} at ${current_price}, new balance: ${balance}")
+                        action_log.append(f"{timestamp}: You sold {count} shares of {ticker} at ${current_price}, earnings: ${earnings}, tax paid: ${tax}, new balance: ${balance}")
                     else:
                         print("Not enough holdings to sell")
                 elif action == "STANDBY":
@@ -157,8 +174,11 @@ def simulate_trading(stock_symbols, initial_balance, initial_holdings):
             # Print current status every 60 seconds
             print(f"\nCurrent bank balance: ${balance}")
             print("Current holdings:")
-            for symbol, lots in holdings.items():
-                print(f"- {symbol}: " + ", ".join([f"{lot['count']} shares bought at ${lot['price']} each" for lot in lots]))
+            if not holdings:
+                print("You have no holdings")
+            else:
+                for symbol, lots in holdings.items():
+                    print(f"- {symbol}: " + ", ".join([f"{lot['count']} shares bought at ${lot['price']} each" for lot in lots]))
             print("Last AI actions:")
             for log in action_log:
                 print(log)
