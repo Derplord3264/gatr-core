@@ -19,7 +19,7 @@ holdings = {}
 action_log = deque(maxlen=5)
 
 # Capital gains tax rate
-capital_gains_tax rate = 0.15
+capital_gains_tax_rate = 0.15
 
 def query_qwen_model(messages):
     completion = client.chat.completions.create(
@@ -32,7 +32,7 @@ def query_qwen_model(messages):
 def parse_decision(decision_text):
     """Parses the AI's decision text and returns valid trading commands."""
     commands = []
-    for decision in decision_text split(','):
+    for decision in decision_text.split(','):
         parts = decision.strip().split()
         if len(parts) == 3 and parts[0] in {"BUY", "SELL"}:
             try:
@@ -54,8 +54,8 @@ def is_market_open():
     """Function to check if the stock market is open."""
     eastern = timezone('US/Eastern')
     now = datetime.now(eastern)
-    market open_time = now.replace(hour=9, minute=30, second=0, microsecond=0)
-    market close_time = now replace(hour=16, minute=0, second=0, microsecond=0)
+    market_open_time = now.replace(hour=9, minute=30, second=0, microsecond=0)
+    market_close_time = now.replace(hour=16, minute=0, second=0, microsecond=0)
     return market_open_time <= now <= market_close_time and now.weekday() < 5
 
 def signal_handler(sig, frame):
@@ -147,7 +147,12 @@ def simulate_trading(stock_symbols, initial_balance, initial_holdings):
                         balance -= cost
                         if ticker not in holdings:
                             holdings[ticker] = []
-                        holdings[ticker].append({"count": count, "price": stock_prices[ticker]})
+                        # Add the fractional shares
+                        if not holdings[ticker]:
+                            holdings[ticker].append({"count": count, "price": stock_prices[ticker]})
+                        else:
+                            holdings[ticker][0]["count"] += count
+                            holdings[ticker][0]["price"] = (holdings[ticker][0]["price"] + stock_prices[ticker]) / 2  # Average price
                         action_log.append(f"{timestamp}: You bought {count} shares of {ticker} at ${stock_prices[ticker]}, new balance: ${balance}")
                     else:
                         print(f"Not enough balance to buy {count} shares of {ticker} at ${stock_prices[ticker]}")
@@ -179,7 +184,7 @@ def simulate_trading(stock_symbols, initial_balance, initial_holdings):
                     action_log.append(f"{timestamp}: You decided to stand by, no action taken")
                 else:
                     print(f"Unexpected command: {action} {ticker} {count}")
-            
+
             # Print current status every 60 seconds
             print(f"\nCurrent bank balance: ${balance}")
             print("Current holdings:")
