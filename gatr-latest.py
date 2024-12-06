@@ -210,5 +210,5 @@ def simulate_trading(stock_symbols, initial_balance, initial_holdings):
         time.sleep(60)
 
 # Running the simulation
-stock_symbols = ['AAPL', 'MSFT', 'GOOGL']
+stock_symbols = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA', 'META', 'NFLX', 'NVDA', 'INTC', 'AMD', 'BABA', 'V', 'MA', 'DIS', 'PYPL', 'ADBE', 'CSCO', 'PEP', 'KO', 'NKE', 'PFE', 'MRNA', 'T', 'VZ', 'WMT', 'COST', 'HD', 'LOW', 'MCD', 'SBUX', 'BA', 'GE', 'CAT', 'MMM', 'HON', 'IBM', 'ORCL', 'CRM', 'INTU', 'SHOP', 'SQ', 'ZM', 'UBER', 'LYFT', 'ABNB', 'SPOT', 'DOCU', 'PLTR', 'SNAP', 'TWTR', 'ROKU', 'CRWD', 'ZS', 'NET', 'DDOG', 'MDB', 'OKTA', 'FSLY', 'DKNG', 'PINS', 'TDOC', 'SQSP', 'RIVN', 'LCID', 'NIO', 'XPEV', 'LI', 'ARKK', 'ARKG', 'ARKF', 'ARKW', 'ARKQ', 'ARKX', 'DIA', 'SPY', 'QQQ', 'IWM', 'EEM', 'GLD', 'SLV', 'USO']
 simulate_trading(stock_symbols, bank_balance, holdings)
