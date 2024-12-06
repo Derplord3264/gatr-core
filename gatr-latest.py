@@ -51,26 +51,9 @@ def get_stock_data(symbol):
     """Function to get real-time stock data using yfinance."""
     stock = yf.Ticker(symbol)
     data = stock.history(period="1d", interval="1m")
+    if data.empty:
+        return None  # Return None if no data is available
     return data['Close'].iloc[-1]  # Return the latest closing price
-
-def get_limited_historical_data(symbol, limit):
-    """Function to get limited historical stock data using yfinance."""
-    stock = yf.Ticker(symbol)
-    data = stock.history(period="1d", interval="1m")
-    return list(zip(data.index.strftime('%Y-%m-%d %H:%M:%S').tolist()[-limit:], data['Close'].tolist()[-limit:]))
-
-def is_market_open():
-    """Function to check if the stock market is open."""
-    eastern = timezone('US/Eastern')
-    now = datetime.now(eastern)
-    market_open_time = now.replace(hour=9, minute=30, second=0, microsecond=0)
-    market_close_time = now.replace(hour=16, minute=0, second=0, microsecond=0)
-    return market_open_time <= now <= market_close_time and now.weekday() < 5
-
-def signal_handler(sig, frame):
-    """Function to handle graceful shutdown."""
-    print("Gracefully shutting down...")
-    sys.exit(0)
 
 def simulate_trading(stock_symbols, initial_balance, initial_holdings):
     """Function to simulate trading based on AI commands."""
@@ -92,8 +75,12 @@ def simulate_trading(stock_symbols, initial_balance, initial_holdings):
 
         stock_prices = {}
         for stock_symbol in stock_symbols:
-            stock_prices[stock_symbol] = get_stock_data(stock_symbol)
-        
+            price = get_stock_data(stock_symbol)
+            if price is not None:
+                stock_prices[stock_symbol] = price
+            else:
+                print(f"No data available for {stock_symbol}")
+
         for stock_symbol, current_price in stock_prices.items():
             historical_prices = get_limited_historical_data(stock_symbol, historical_data_limit)
             
@@ -146,7 +133,7 @@ def simulate_trading(stock_symbols, initial_balance, initial_holdings):
 
             # Parse the AI's decision
             commands = parse_decision(action_response)
-
+            
             # Execute the parsed commands
             timestamp = time.strftime('%Y-%m-%d %H:%M:%S')
             for action, ticker, count in commands:
