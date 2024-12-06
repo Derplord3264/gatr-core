@@ -7,6 +7,14 @@ from datetime import datetime
 from pytz import timezone
 from collections import deque
 import json
+import logging
+
+# Set up logging configuration
+logging.basicConfig(
+    filename='trading_simulation.log',
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
 
 # Initialize Hugging Face Inference Client with new API key
 client = InferenceClient(api_key="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")
@@ -73,6 +81,11 @@ def signal_handler(sig, frame):
     """Function to handle graceful shutdown."""
     print("Gracefully shutting down...")
     sys.exit(0)
+
+def log_action(action, balance, holdings):
+    """Logs the action taken by the AI, bank balance, and holdings."""
+    holdings_info = json.dumps(holdings, indent=4) if holdings else "You have no holdings"
+    logging.info(f"Action: {action}, Balance: ${balance}, Holdings: {holdings_info}")
 
 def simulate_trading(stock_symbols, initial_balance, initial_holdings):
     """Function to simulate trading based on AI commands."""
@@ -169,9 +182,11 @@ def simulate_trading(stock_symbols, initial_balance, initial_holdings):
                             holdings[ticker][0]["count"] += count
                             holdings[ticker][0]["price"] = (holdings[ticker][0]["price"] + stock_prices[ticker]) / 2  # Average price
                         action_log.append(f"{timestamp}: You bought {count} shares of {ticker} at ${stock_prices[ticker]}, new balance: ${balance}")
+                        log_action(f"Bought {count} shares of {ticker}", balance, holdings)
                     else:
                         print(f"Not enough balance to buy {count} shares of {ticker} at ${stock_prices[ticker]}")
                         action_log.append(f"{timestamp}: You didn't have enough balance to buy {count} stocks of {ticker} at ${stock_prices[ticker]}.")
+                        log_action(f"Failed to buy {count} shares of {ticker} due to insufficient funds", balance, holdings)
                 elif action == "SELL":
                     if ticker in holdings and any(lot["count"] >= count for lot in holdings[ticker]):
                         earnings = stock_prices[ticker] * count
@@ -190,15 +205,20 @@ def simulate_trading(stock_symbols, initial_balance, initial_holdings):
                             if not holdings[ticker]:
                                 del holdings[ticker]
                             action_log.append(f"{timestamp}: You sold {count} shares of {ticker} at ${stock_prices[ticker]}, earnings: ${earnings}, tax paid: ${tax}, new balance: ${balance}")
+                            log_action(f"Sold {count} shares of {ticker}", balance, holdings)
                         else:
                             print(f"Profit of ${profit} is less than $30, holding the stocks.")
                             action_log.append(f"{timestamp}: You tried to sell {count} shares of {ticker} at a profit of ${profit}, but the profit was lower than the minimum profit of $30, and the stock(s) were not sold.")
+                            log_action(f"Failed to sell {count} shares of {ticker} due to insufficient profit", balance, holdings)
                     else:
                         print("Not enough holdings to sell")
+                        log_action(f"Failed to sell {count} shares of {ticker} due to insufficient holdings", balance, holdings)
                 elif action == "STANDBY":
                     action_log.append(f"{timestamp}: You decided to stand by, no action taken")
+                    log_action("STANDBY", balance, holdings)
                 else:
                     print(f"Unexpected command: {action} {ticker} {count}")
+                    log_action(f"Unexpected command: {action} {ticker} {count}", balance, holdings)
             
             # Print current status every 60 seconds
             print(f"\nCurrent bank balance: ${balance}")
